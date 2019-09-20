@@ -16,7 +16,7 @@ AR=ar
 BUILDDIR=./bin/build
 BIN=./bin/a.$(BINEXT)
 SOURCEDIR=src
-LINENOISE=ON
+LINENOISE=OFF
 CFLAGS=\
 	-I./include\
 	-I./include/duktape\
@@ -39,7 +39,7 @@ LDFLAGS=\
 all:\
 	$(BIN)
 $(BIN):$(OBJECTS)
-	@$(CXX)\
+	$(CXX)\
 		$(CFLAGS)\
 		$(OBJECTS)\
 		$(LDFLAGS)\
@@ -47,7 +47,7 @@ $(BIN):$(OBJECTS)
 $(BUILDDIR)/%.o: %.cpp
 	@printf "generating $@...\n"
 	@mkdir -p $(@D)
-	@$(CXX)\
+	$(CXX)\
 		$(CFLAGS)\
 		-c $<\
 		$(LDFLAGS)\
@@ -55,7 +55,7 @@ $(BUILDDIR)/%.o: %.cpp
 $(BUILDDIR)/%.o: %.c
 	@printf "generating $@...\n"
 	@mkdir -p $(@D)
-	@$(CC)\
+	$(CC)\
 		$(CFLAGS)\
 		-c $<\
 		$(LDFLAGS)\
