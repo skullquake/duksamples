@@ -13,9 +13,11 @@ endif
 CC=gcc
 CXX=g++
 AR=ar
-BUILDDIR=./bin/build
+BUILDDIR=./bin
+BUILDDIRBIN=./bin/app
+BUILDDIRLIB=./bin/lib
 BIN=./bin/duk$(BINEXT)
-SRCDIRBIN=src/app
+SRCDIRBIN=./src/app
 LINENOISE=OFF
 MODULES=ON
 CONSOLE=ON
@@ -99,6 +101,15 @@ $(BUILDDIRLIB)/%.o: %.cpp
 	@printf "generating $@...\n"
 	@mkdir -p $(@D)
 	$(CXX)\
+		$(CFLAGSLIB)\
+		-c $<\
+		-fPIC\
+		$(LDFLAGSLIB)\
+		-o $@
+$(BUILDDIRLIB)/%.o: %.c
+	@printf "generating $@...\n"
+	@mkdir -p $(@D)
+	$(CC)\
 		$(CFLAGSLIB)\
 		-c $<\
 		-fPIC\
