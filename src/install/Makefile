@@ -16,8 +16,7 @@ AR=ar
 BUILDDIR=./bin/build
 BIN=./bin/a.$(BINEXT)
 SOURCEDIR=src
-LINENOISE=OFF
-
+LINENOISE=ON
 CFLAGS=\
 	-I./include\
 	-I./include/duktape\

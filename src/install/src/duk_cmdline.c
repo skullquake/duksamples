@@ -739,7 +739,7 @@ static int handle_interactive(duk_context *ctx) {
 
 	for (;;) {
 		if (buffer) {
-			linenoiseFree(buffer);
+			//linenoiseFree(buffer);
 			buffer = NULL;
 		}
 
@@ -772,7 +772,7 @@ static int handle_interactive(duk_context *ctx) {
 #endif
 
 		if (buffer) {
-			linenoiseFree(buffer);
+			//linenoiseFree(buffer);
 			buffer = NULL;
 		}
 
@@ -786,7 +786,7 @@ static int handle_interactive(duk_context *ctx) {
 	}
 
 	if (buffer) {
-		linenoiseFree(buffer);
+		//linenoiseFree(buffer);
 		buffer = NULL;
 	}
 
