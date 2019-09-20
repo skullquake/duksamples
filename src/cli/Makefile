@@ -14,9 +14,13 @@ CC=gcc
 CXX=g++
 AR=ar
 BUILDDIR=./bin/build
-BIN=./bin/a.$(BINEXT)
+BIN=./bin/duk.$(BINEXT)
 SOURCEDIR=src
 LINENOISE=OFF
+MODULES=ON
+CONSOLE=ON
+PRINTALERT=ON
+FILEIO=ON
 CFLAGS=\
 	-I./include\
 	-I./include/duktape\
@@ -32,6 +36,22 @@ CFLAGS+=\
        	-I./include/linenoise
 else
 SOURCES=$(call FILTER_OUT,linenoise,$(shell find $(SOURCEDIR) -name "*.cpp" -o -name "*.c" ))
+endif
+ifeq ($(MODULES),ON)
+CFLAGS+=\
+	-DDUK_CMDLINE_MODULE_SUPPORT
+endif
+ifeq ($(CONSOLE),ON)
+CFLAGS+=\
+	-DDUK_CMDLINE_CONSOLE_SUPPORT
+endif
+ifeq ($(PRINTALERT),ON)
+CFLAGS+=\
+	-DDUK_CMDLINE_PRINTALERT_SUPPORT
+endif
+ifeq ($(FILEIO),ON)
+CFLAGS+=\
+	-DDUK_CMDLINE_FILEIO
 endif
 OBJECTS=$(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o ,$(patsubst %.cpp,%.o,$(SOURCES))))
 LDFLAGS=\
@@ -66,9 +86,12 @@ $(BUILDDIR)/%.o: %.c
 	lsvar
 clean:
 	@rm -r ./bin
+install:
+	@cp $(BIN) /usr/bin
 run:
 	$(BIN)
 lsvar:
+	@echo $(CFLAGS)
 	@echo $(BIN)
 	@echo $(OBJECTS)
 	@echo $(SOURCES)
