@@ -1,0 +1,3 @@
+in progres...
+
+It is useful to have exposed a function for loading shared objects and initializing them. Here duk cli is extended with that feature
