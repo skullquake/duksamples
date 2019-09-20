@@ -27,7 +27,9 @@ CFLAGS=\
 ifeq ($(LINENOISE),ON)
 SOURCES=$(shell find $(SOURCEDIR) -name "*.cpp" -o -name "*.c" )
 CFLAGS+=\
-	-DDUK_CMDLINE_LINENOISE
+	-DDUK_CMDLINE_LINENOISE\
+	-DDUK_CMDLINE_FANCY\
+       	-I./include/linenoise
 else
 SOURCES=$(call FILTER_OUT,linenoise,$(shell find $(SOURCEDIR) -name "*.cpp" -o -name "*.c" ))
 endif
