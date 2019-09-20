@@ -1,2 +1,3 @@
 #!/bin/bash
-duk ./src/a.js
+DUK=../cli/bin/duk
+$DUK ./src/a.js

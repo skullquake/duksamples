@@ -2,10 +2,10 @@ FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 OS=$(shell $(CXX) -dumpmachine)
 ifneq (,$(findstring mingw,$(OS)))
 SOEXT?=dll
-BINEXT?=exe
+BINEXT?=.exe
 else
 SOEXT?=so
-BINEXT?=out
+BINEXT?=
 endif
 ifeq ($(PREFIX),)
 PREFIX := /usr/local
@@ -14,7 +14,7 @@ CC=gcc
 CXX=g++
 AR=ar
 BUILDDIR=./bin/build
-BIN=./bin/duk.$(BINEXT)
+BIN=./bin/duk$(BINEXT)
 SOURCEDIR=src
 LINENOISE=OFF
 MODULES=ON
