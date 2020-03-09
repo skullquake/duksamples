@@ -4,7 +4,7 @@ try{
 	s.setOption("enable_directory_listing","yes");
 	s.setOption("document_root","./pub");
 	s.start();
-	s.poll();
+	//s.poll();
 }catch(e){
 	console.log(e);
 }

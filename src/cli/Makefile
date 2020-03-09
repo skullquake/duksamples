@@ -24,6 +24,7 @@ FILEIO=ON
 CFLAGS=\
 	-I./src\
 	-I./src/duktape\
+	-I./src/linenoise\
 	-I./src/duktape/extras/console\
 	-I./src/duktape/extras/module-duktape\
 	-I./src/duktape/extras/module-node\
@@ -60,7 +61,8 @@ CFLAGS+=\
 endif
 OBJECTS=$(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o ,$(patsubst %.cpp,%.o,$(SOURCES))))
 LDFLAGS=\
-	-llinenoise
+	-lpthread
+#	-llinenoise
 all:\
 	$(BIN)
 $(BIN):$(OBJECTS)
