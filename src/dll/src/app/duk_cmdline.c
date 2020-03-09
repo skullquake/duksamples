@@ -61,6 +61,9 @@
 #if defined(DUK_CMDLINE_RLIMIT)
 #include <sys/resource.h>
 #endif
+#if defined(DUK_CMDLINE_SOLOAD)
+#include "duk_soload.h"
+#endif
 #if defined(DUK_CMDLINE_LINENOISE)
 #include "linenoise.h"
 #include <stdint.h>  /* Assume C99/C++11 with linenoise. */

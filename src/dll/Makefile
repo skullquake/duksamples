@@ -14,8 +14,8 @@ CC=gcc
 CXX=g++
 AR=ar
 BUILDDIR=./bin
-BUILDDIRBIN=./bin/app
-BUILDDIRLIB=./bin/lib
+BUILDDIRBIN=$(BUILDDIR)/app
+BUILDDIRLIB=$(BUILDDIR)/lib
 BIN=./bin/duk$(BINEXT)
 SRCDIRBIN=./src/app
 LINENOISE=OFF
@@ -23,6 +23,7 @@ MODULES=ON
 CONSOLE=ON
 PRINTALERT=ON
 FILEIO=ON
+SOLOAD=ON
 CFLAGS=\
 	-I./include/app\
 	-I./include/app/duktape\
@@ -38,6 +39,11 @@ CFLAGS+=\
        	-I./include/linenoise
 else
 SRCBIN=$(call FILTER_OUT,linenoise,$(shell find $(SRCDIRBIN) -name "*.cpp" -o -name "*.c" ))
+endif
+ifeq ($(SOLOAD),ON)
+CFLAGS+=\
+	-DDUK_CMDLINE_SOLOAD \
+	-I./include/app/duktape/extras/soload
 endif
 ifeq ($(MODULES),ON)
 CFLAGS+=\

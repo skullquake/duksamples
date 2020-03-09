@@ -1,3 +1,5 @@
+#include<iostream>
+#include"dukglue/dukglue.h"
 /*
  *  Command line execution tool.  Useful for test cases and manual testing.
  *  Also demonstrates some basic integration techniques.
@@ -62,7 +64,7 @@
 #include <sys/resource.h>
 #endif
 #if defined(DUK_CMDLINE_LINENOISE)
-#include "linenoise.h"
+#include <linenoise.h>
 #include <stdint.h>  /* Assume C99/C++11 with linenoise. */
 #endif
 #if defined(DUK_CMDLINE_PRINTALERT_SUPPORT)
@@ -424,7 +426,7 @@ static duk_ret_t linenoise_add_completion(duk_context *ctx) {
 
 	duk_push_current_function(ctx);
 	duk_get_prop_string(ctx, -1, "lc");
-	lc = duk_require_pointer(ctx, -1);
+	lc =(linenoiseCompletions*)duk_require_pointer(ctx, -1);
 
 	linenoiseAddCompletion(lc, duk_require_string(ctx, 0));
 	return 0;
@@ -1256,26 +1258,77 @@ static void destroy_duktape_heap(duk_context *ctx, int alloc_provider) {
 #endif
 }
 
-/*
- *  Main
- */
 
-int main(int argc, char *argv[]) {
-	duk_context *ctx = NULL;
-	int retval = 0;
-	int have_files = 0;
-	int have_eval = 0;
-	int interactive = 0;
-	int memlimit_high = 1;
-	int alloc_provider = ALLOC_DEFAULT;
-	int lowmem_log = 0;
-	int debugger = 0;
-	int recreate_heap = 0;
-	int no_heap_destroy = 0;
-	int verbose = 0;
-	int run_stdin = 0;
-	const char *compile_filename = NULL;
-	int i;
+
+/* Example of how a native stack check can be implemented in a platform
+ * specific manner for DUK_USE_NATIVE_STACK_CHECK().  This example is for
+ * (Linux) pthreads, and rejects further native recursion if less than
+ * 16kB stack is left (conservative).
+ */
+#if defined(DUK_CMDLINE_PTHREAD_STACK_CHECK)
+int duk_cmdline_stack_check(void) {
+	pthread_attr_t attr;
+	void *stackaddr;
+	size_t stacksize;
+	char *ptr;
+	char *ptr_base;
+	ptrdiff_t remain;
+
+	(void) pthread_getattr_np(pthread_self(), &attr);
+	(void) pthread_attr_getstack(&attr, &stackaddr, &stacksize);
+	ptr = (char *) &stacksize;  /* Rough estimate of current stack pointer. */
+	ptr_base = (char *) stackaddr;
+	remain = ptr - ptr_base;
+
+	/* HIGH ADDR   -----  stackaddr + stacksize
+	 *               |
+	 *               |  stack growth direction
+	 *               v -- ptr, approximate used size
+	 *
+	 * LOW ADDR    -----  ptr_base, end of stack (lowest address)
+	 */
+
+#if 0
+	fprintf(stderr, "STACK CHECK: stackaddr=%p, stacksize=%ld, ptr=%p, remain=%ld\n",
+	        stackaddr, (long) stacksize, (void *) ptr, (long) remain);
+	fflush(stderr);
+#endif
+	if (remain < 16384) {
+		return 1;
+	}
+	return 0;  /* 0: no error, != 0: throw RangeError */
+}
+#else
+int duk_cmdline_stack_check(void) {
+	return 0;
+}
+#endif
+
+
+
+
+
+#include"duk.h"
+#include"srv.h"
+#include<mongoosecpp/Server.h>
+#include<mongoosecpp/WebController.h>
+Duk::Duk(int argc, char *argv[]) {
+	ctx = NULL;
+	retval = 0;
+	have_files = 0;
+	have_eval = 0;
+	interactive = 0;
+	memlimit_high = 1;
+	alloc_provider = ALLOC_DEFAULT;
+	lowmem_log = 0;
+	debugger = 0;
+	recreate_heap = 0;
+	no_heap_destroy = 0;
+	verbose = 0;
+	run_stdin = 0;
+	//*compile_filename = NULL;
+	//i;
+
 
 	main_argc = argc;
 	main_argv = (char **) argv;
@@ -1350,7 +1403,8 @@ int main(int argc, char *argv[]) {
 	for (i = 1; i < argc; i++) {
 		char *arg = argv[i];
 		if (!arg) {
-			goto usage;
+			this->usage();
+			break;
 		}
 		if (strcmp(arg, "--restrict-memory") == 0) {
 			memlimit_high = 0;
@@ -1360,14 +1414,16 @@ int main(int argc, char *argv[]) {
 			allow_bytecode = 1;
 		} else if (strcmp(arg, "-c") == 0) {
 			if (i == argc - 1) {
-				goto usage;
+				this->usage();
+				break;
 			}
 			i++;
 			compile_filename = argv[i];
 		} else if (strcmp(arg, "-e") == 0) {
 			have_eval = 1;
 			if (i == argc - 1) {
-				goto usage;
+				this->usage();
+				break;
 			}
 			i++;  /* skip code */
 		} else if (strcmp(arg, "--alloc-default") == 0) {
@@ -1401,7 +1457,8 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(arg, "--run-stdin") == 0) {
 			run_stdin = 1;
 		} else if (strlen(arg) >= 1 && arg[0] == '-') {
-			goto usage;
+			this->usage();
+			break;
 		} else {
 			have_files = 1;
 		}
@@ -1426,13 +1483,14 @@ int main(int argc, char *argv[]) {
 	/*
 	 *  Create heap
 	 */
-
 	ctx = create_duktape_heap(alloc_provider, debugger, lowmem_log);
-
+	/*
+	 *  Register functions and classes
+	 */
+	this->reg();
 	/*
 	 *  Execute any argument file(s)
 	 */
-
 	for (i = 1; i < argc; i++) {
 		char *arg = argv[i];
 		if (!arg) {
@@ -1441,11 +1499,11 @@ int main(int argc, char *argv[]) {
 			/* Here we know the eval arg exists but check anyway */
 			if (i == argc - 1) {
 				retval = 1;
-				goto cleanup;
+				this->cleanup();//goto cleanup;
 			}
 			if (handle_eval(ctx, argv[i + 1]) != 0) {
 				retval = 1;
-				goto cleanup;
+				this->cleanup();//goto cleanup;
 			}
 			i++;  /* skip code */
 			continue;
@@ -1463,7 +1521,7 @@ int main(int argc, char *argv[]) {
 
 		if (handle_file(ctx, arg, compile_filename) != 0) {
 			retval = 1;
-			goto cleanup;
+			this->cleanup();//goto cleanup;
 		}
 
 		if (recreate_heap) {
@@ -1484,7 +1542,7 @@ int main(int argc, char *argv[]) {
 		 */
 		if (handle_fh(ctx, stdin, "stdin", compile_filename) != 0) {
 			retval = 1;
-			goto cleanup;
+			this->cleanup();//goto cleanup;
 		}
 
 		if (recreate_heap) {
@@ -1497,24 +1555,83 @@ int main(int argc, char *argv[]) {
 			ctx = create_duktape_heap(alloc_provider, debugger, lowmem_log);
 		}
 	}
-
 	/*
 	 *  Enter interactive mode if options indicate it
 	 */
-
-	if (interactive) {
-		print_greet_line();
-		if (handle_interactive(ctx) != 0) {
-			retval = 1;
-			goto cleanup;
-		}
+	if(interactive){
+		this->repl();
 	}
+}
+Duk::~Duk(){
+	std::cout<<"~Duk()"<<std::endl;
+};
+void Duk::usage(){
+	std::cerr<<R"(
+Usage: duk [options] [<filenames>]
 
-	/*
-	 *  Cleanup and exit
-	 */
+   -i                 enter interactive mode after executing argument file(s) / eval code
+   -e CODE            evaluate code
+   -c FILE            compile into bytecode and write to FILE (use with only one file argument)
+   -b                 allow bytecode input files (memory unsafe for invalid bytecode)
+   --run-stdin        treat stdin like a file, i.e. compile full input (not line by line)
+   --verbose          verbose messages to stderr
+   --restrict-memory  use lower memory limit (used by test runner)
+   --alloc-default    use Duktape default allocator)";
+#if defined(DUK_CMDLINE_ALLOC_LOGGING)
+	std::cerr<<R"(
+   --alloc-logging    use logging allocator, write alloc log to /tmp/duk-alloc-log.txt
+)";
+#endif
+#if defined(DUK_CMDLINE_ALLOC_TORTURE)
+	std::cerr<<R"(
+   --alloc-torture    use torture allocator
+)";
+#endif
+#if defined(DUK_CMDLINE_ALLOC_HYBRID)
+	std::cerr<<R"(
+   --alloc-hybrid     use hybrid allocator
+)";
+#endif
+#if defined(DUK_CMDLINE_LOWMEM)
+	std::cerr<<R"(
+   --alloc-lowmem     use pooled allocator (enabled by default for duk-low)
+   --lowmem-log       write alloc log to /tmp/lowmem-alloc-log.txt
+)";
+#endif
+#if defined(DUK_CMDLINE_DEBUGGER_SUPPORT)
+	std::cerr<<R"(
+   --debugger         start example debugger
+   --reattach         automatically reattach debugger on detach
+)";
+#endif
+	std::cerr<<R"(
+   --recreate-heap    recreate heap after every file
+   --no-heap-destroy  force GC, but don't destroy heap at end (leak testing)
+)";
+#if defined(DUK_CMDLINE_LINENOISE_COMPLETION)
+	std::cerr<<R"(
+   --no-auto-complete disable linenoise auto completion
+)";
+#else
+	std::cerr<<R"(
+   --no-auto-complete disable linenoise auto completion [ignored, not supported]
+)";
+#endif
+	std::cerr<<R"(
 
- cleanup:
+If <filename> is omitted, interactive mode is started automatically.
+
+Input files can be either ECMAScript source files or bytecode files
+(if -b is given).  Bytecode files are not validated prior to loading,
+so that incompatible or crafted files can cause memory unsafe behavior.
+See discussion in
+https://github.com/svaarala/duktape/blob/master/doc/bytecode.rst#memory-safety-and-bytecode-validation.
+	)";
+	fflush(stderr);
+	std::cout<<"asdf"<<std::endl;
+}
+void Duk::cleanup(){
+
 	if (interactive) {
 		fprintf(stderr, "Cleaning up...\n");
 		fflush(stderr);
@@ -1527,100 +1644,56 @@ int main(int argc, char *argv[]) {
 		destroy_duktape_heap(ctx, alloc_provider);
 	}
 	ctx = NULL;
-
-	return retval;
-
-	/*
-	 *  Usage
-	 */
-
- usage:
-	fprintf(stderr, "Usage: duk [options] [<filenames>]\n"
-	                "\n"
-	                "   -i                 enter interactive mode after executing argument file(s) / eval code\n"
-	                "   -e CODE            evaluate code\n"
-	                "   -c FILE            compile into bytecode and write to FILE (use with only one file argument)\n"
-	                "   -b                 allow bytecode input files (memory unsafe for invalid bytecode)\n"
-	                "   --run-stdin        treat stdin like a file, i.e. compile full input (not line by line)\n"
-	                "   --verbose          verbose messages to stderr\n"
-	                "   --restrict-memory  use lower memory limit (used by test runner)\n"
-	                "   --alloc-default    use Duktape default allocator\n"
-#if defined(DUK_CMDLINE_ALLOC_LOGGING)
-	                "   --alloc-logging    use logging allocator, write alloc log to /tmp/duk-alloc-log.txt\n"
-#endif
-#if defined(DUK_CMDLINE_ALLOC_TORTURE)
-	                "   --alloc-torture    use torture allocator\n"
-#endif
-#if defined(DUK_CMDLINE_ALLOC_HYBRID)
-	                "   --alloc-hybrid     use hybrid allocator\n"
-#endif
-#if defined(DUK_CMDLINE_LOWMEM)
-	                "   --alloc-lowmem     use pooled allocator (enabled by default for duk-low)\n"
-	                "   --lowmem-log       write alloc log to /tmp/lowmem-alloc-log.txt\n"
-#endif
-#if defined(DUK_CMDLINE_DEBUGGER_SUPPORT)
-	                "   --debugger         start example debugger\n"
-	                "   --reattach         automatically reattach debugger on detach\n"
-#endif
-	                "   --recreate-heap    recreate heap after every file\n"
-	                "   --no-heap-destroy  force GC, but don't destroy heap at end (leak testing)\n"
-#if defined(DUK_CMDLINE_LINENOISE_COMPLETION)
-	                "   --no-auto-complete disable linenoise auto completion\n"
-#else
-	                "   --no-auto-complete disable linenoise auto completion [ignored, not supported]\n"
-#endif
-	                "\n"
-	                "If <filename> is omitted, interactive mode is started automatically.\n"
-	                "\n"
-	                "Input files can be either ECMAScript source files or bytecode files\n"
-	                "(if -b is given).  Bytecode files are not validated prior to loading,\n"
-	                "so that incompatible or crafted files can cause memory unsafe behavior.\n"
-	                "See discussion in\n"
-	                "https://github.com/svaarala/duktape/blob/master/doc/bytecode.rst#memory-safety-and-bytecode-validation.\n");
-	fflush(stderr);
-	exit(1);
 }
-
-/* Example of how a native stack check can be implemented in a platform
- * specific manner for DUK_USE_NATIVE_STACK_CHECK().  This example is for
- * (Linux) pthreads, and rejects further native recursion if less than
- * 16kB stack is left (conservative).
- */
-#if defined(DUK_CMDLINE_PTHREAD_STACK_CHECK)
-int duk_cmdline_stack_check(void) {
-	pthread_attr_t attr;
-	void *stackaddr;
-	size_t stacksize;
-	char *ptr;
-	char *ptr_base;
-	ptrdiff_t remain;
-
-	(void) pthread_getattr_np(pthread_self(), &attr);
-	(void) pthread_attr_getstack(&attr, &stackaddr, &stacksize);
-	ptr = (char *) &stacksize;  /* Rough estimate of current stack pointer. */
-	ptr_base = (char *) stackaddr;
-	remain = ptr - ptr_base;
-
-	/* HIGH ADDR   -----  stackaddr + stacksize
-	 *               |
-	 *               |  stack growth direction
-	 *               v -- ptr, approximate used size
-	 *
-	 * LOW ADDR    -----  ptr_base, end of stack (lowest address)
-	 */
-
-#if 0
-	fprintf(stderr, "STACK CHECK: stackaddr=%p, stacksize=%ld, ptr=%p, remain=%ld\n",
-	        stackaddr, (long) stacksize, (void *) ptr, (long) remain);
-	fflush(stderr);
-#endif
-	if (remain < 16384) {
-		return 1;
+void test(int i,int j){
+	std::cout<<(i+j)<<std::endl;
+}
+void Duk::repl(){
+	print_greet_line();
+	if (handle_interactive(ctx) != 0) {
+		retval = 1;
+		this->cleanup();//goto cleanup;
 	}
-	return 0;  /* 0: no error, != 0: throw RangeError */
 }
-#else
-int duk_cmdline_stack_check(void) {
-	return 0;
+void Duk::reg(){
+	//duk_put_global_string(ctx,"test");
+	dukglue_register_function(ctx,&test,"test");
+	dukglue_register_function(ctx,&srvstart,"srvstart");
+	dukglue_register_function(ctx,&srvstop,"srvstop");
+	//server
+	dukglue_register_constructor<Server>(ctx,"Server");
+	dukglue_register_method(
+		ctx,
+		&Server::start,
+		"start"
+	);
+	dukglue_register_method(
+		ctx,
+		&Server::stop,
+		"stop"
+	);
+	dukglue_register_method(
+		ctx,
+		&Server::setOption,
+		"setOption"
+	);
+	dukglue_register_method(
+		ctx,
+		&Server::printStats,
+		"printStats"
+	);
+	dukglue_register_method(
+		ctx,
+		&Server::poll,
+		"poll"
+	);
+        //server.setOption("enable_directory_listing","yes");
+        //server.setOption("document_root","./pub");
+/*
+dukglue_register_method(
+        ctx,
+        &::app::duktape::wrappers::cpr::Req::setRequestHeaders,
+        "setRequestHeaders"
+);
+*/
 }
-#endif

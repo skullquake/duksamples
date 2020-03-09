@@ -16,24 +16,29 @@ AR=ar
 BUILDDIR=./bin/build
 BIN=./bin/duk$(BINEXT)
 SOURCEDIR=src
-LINENOISE=OFF
+LINENOISE=ON
 MODULES=ON
 CONSOLE=ON
 PRINTALERT=ON
 FILEIO=ON
 CFLAGS=\
-	-I./include\
-	-I./include/duktape\
-	-I./include/duktape/extras/console\
-	-I./include/duktape/extras/module-duktape\
-	-I./include/duktape/extras/module-node\
-	-I./include/duktape/extras/print-alert
+	-I./src\
+	-I./src/duktape\
+	-I./src/duktape/extras/console\
+	-I./src/duktape/extras/module-duktape\
+	-I./src/duktape/extras/module-node\
+	-I./src/duktape/extras/print-alert\
+	-I./src/mongoose-cpp\
+	-I./src/mongoose\
+	-DNO_WEBSOCKET\
+	-fpermissive\
+		        
 ifeq ($(LINENOISE),ON)
 SOURCES=$(shell find $(SOURCEDIR) -name "*.cpp" -o -name "*.c" )
 CFLAGS+=\
 	-DDUK_CMDLINE_LINENOISE\
-	-DDUK_CMDLINE_FANCY\
-       	-I./include/linenoise
+	-DDUK_CMDLINE_FANCY
+#       	-I./src/linenoise
 else
 SOURCES=$(call FILTER_OUT,linenoise,$(shell find $(SOURCEDIR) -name "*.cpp" -o -name "*.c" ))
 endif
@@ -55,7 +60,7 @@ CFLAGS+=\
 endif
 OBJECTS=$(addprefix $(BUILDDIR)/,$(patsubst %.c,%.o ,$(patsubst %.cpp,%.o,$(SOURCES))))
 LDFLAGS=\
-
+	-llinenoise
 all:\
 	$(BIN)
 $(BIN):$(OBJECTS)
@@ -88,16 +93,7 @@ clean:
 	@rm -r ./bin
 install:
 	@cp $(BIN) /usr/bin
-run:
-	$(BIN)
-lsvar:
-	@echo $(CFLAGS)
-	@echo $(BIN)
-	@echo $(OBJECTS)
-	@echo $(SOURCES)
-	@echo $(SRCDIR)
-	@echo $(PREFIX)
-
-
-
-
+run:$(BIN)
+	$(BIN)\
+		-i\
+		./res/a.js
