@@ -1,0 +1,14 @@
+{
+	"foo":"bar",
+	"baz":42,
+	"qux":true,
+	"klutz":{
+		"foo":"bar",
+		"baz":42,
+		"qux":true,
+		"klutz":[
+			4,
+			2
+		]
+	}
+}
